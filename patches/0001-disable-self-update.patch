@@ -1,0 +1,31 @@
+diff --git a/class/System.class.php b/class/System.class.php
+index 8904b32..4206dd2 100755
+--- a/class/System.class.php
++++ b/class/System.class.php
+@@ -113,6 +113,10 @@ class Sys
+     //проверка обновлений системы
+     public static function checkUpdate()
+     {
++        // torrentmonitor-helm: the image is immutable and updated by rebuilding;
++        // no update check against xml.tormon.ru.
++        return FALSE;
++
+         //получаем страницу
+         $page = Sys::getUrlContent(
+             array(
+diff --git a/class/Update.class.php b/class/Update.class.php
+index 2043c78..d47ee42 100755
+--- a/class/Update.class.php
++++ b/class/Update.class.php
+@@ -34,6 +34,11 @@ class Update {
+     
+     public static function main()
+     {
++        // torrentmonitor-helm: no self-update (no code download, no runtime
++        // schema changes); the image's migrator owns the database schema.
++        echo 'Self-update is disabled in this image; update the container image instead.' . "\r\n" . '<br />';
++        return;
++
+         if (Sys::checkUpdate())
+         {
+             $page = Sys::getUrlContent(

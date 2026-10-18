@@ -1,0 +1,31 @@
+diff --git a/class/System.class.php b/class/System.class.php
+index 8904b32..9af0bd1 100755
+--- a/class/System.class.php
++++ b/class/System.class.php
+@@ -777,10 +777,9 @@ class Sys
+     //записываем время последнего запуска системы
+     public static function lastStart()
+     {
+-        $dir = dirname(__FILE__);
+-        $dir = str_replace('class', '', $dir);
+-        $date = date('d-m-Y H:i:s');
+-        file_put_contents($dir.'/laststart.txt', $date);
++        // torrentmonitor-helm: in the database, not laststart.txt: the code
++        // directory is read-only and engine.php runs in a separate pod.
++        Database::updateSettings('lastStart', date('d-m-Y H:i:s'));
+     }
+ 
+     //проверяем что файл является torrent-файлом (ну пытаемся)
+diff --git a/pages/main.php b/pages/main.php
+index 4e1feeb..40d3e47 100755
+--- a/pages/main.php
++++ b/pages/main.php
+@@ -29,7 +29,7 @@ if (! empty($news)) {
+     }
+ }
+ 
+-$lastStart = @file_get_contents(dirname(__FILE__).'/../laststart.txt');
++$lastStart = Database::getSetting('lastStart');
+ if (! empty($lastStart)) {
+     $date = explode('-', $lastStart);
+     $lastStartTime =  $date[0].' '.Sys::dateNumToString($date[1]).' '.$date[2];
