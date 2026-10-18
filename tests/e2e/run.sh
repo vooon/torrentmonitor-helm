@@ -13,7 +13,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 CHART=$HERE/../../charts/torrentmonitor
 CLUSTER=${CLUSTER:-tm-e2e}
 KEEP=${KEEP:-}
-export KUBECONFIG=$(mktemp)
+KUBECONFIG=$(mktemp)
+export KUBECONFIG
 
 cleanup() {
     local rc=$?
