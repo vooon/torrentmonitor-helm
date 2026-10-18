@@ -42,6 +42,12 @@ versions with two parts (`3.3`) become `3.3.0-N`. The build fails if
 - `0002-last-start-in-database`: the last engine run is stored in
   `settings.lastStart` instead of `laststart.txt` (read-only code, engine in a
   separate pod).
+- `0003-no-remote-news`: no news from xml.tormon.ru. Upstream stores that
+  text and renders it unescaped in the logged-in UI (and sends it as a
+  notification), i.e. remote HTML in an authenticated page.
+
+The only remaining tormon.ru address is `lf.tormon.ru`, the feed of the
+optional "lostfilm mirror" tracker, used only if you add that tracker.
 
 ## Configuration (environment)
 

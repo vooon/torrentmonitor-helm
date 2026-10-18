@@ -80,7 +80,11 @@ for mode in "${MODES[@]}"; do
 
     step "$mode: upgrade (helm upgrade, migrator rerun)"
     helm upgrade tm "$CHART" -n "$ns" --reuse-values --set podAnnotations.e2e=upgrade --wait --timeout 300s
-    kubectl -n "$ns" logs deploy/tm-torrentmonitor -c migrate | grep -q 'up to date'
+    kubectl -n "$ns" rollout status deploy/tm-torrentmonitor --timeout=120s
+    # The newest web pod (the old one may still be terminating).
+    newest=$(kubectl -n "$ns" get pod -l app.kubernetes.io/component=web \
+        --sort-by=.metadata.creationTimestamp -o name | tail -1)
+    kubectl -n "$ns" logs "$newest" -c migrate | tee /dev/stderr | grep -q 'up to date'
     echo "OK: $mode"
 done
 echo; echo "== all OK: ${MODES[*]}"

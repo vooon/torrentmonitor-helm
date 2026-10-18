@@ -1,0 +1,16 @@
+diff --git a/class/System.class.php b/class/System.class.php
+index 8904b32..a0479c7 100755
+--- a/class/System.class.php
++++ b/class/System.class.php
+@@ -827,6 +827,11 @@ class Sys
+     //получаем важные новости и кладём в БД
+     public static function getNews()
+     {
++        // torrentmonitor-helm: no news from xml.tormon.ru. The text is stored
++        // and shown unescaped in the UI (include/news.php) and sent as a
++        // notification: remote HTML in an authenticated page.
++        return;
++
+         //получаем страницу
+         $page = Sys::getUrlContent(
+             array(
