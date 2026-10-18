@@ -20,10 +20,17 @@
 		respond "ok" 200
 	}
 
+	# The self-update page (Update::main is patched to a no-op anyway).
+	handle /include/update.php {
+		respond 404
+	}
+
 	# Allowlist: the entry points the browser and API clients use, and static
-	# files. Everything else (class/, include/, trackers/, engine.php,
-	# config.xml, version.txt, torrents/, ...) is internal: 404.
-	@public path / /index.php /action.php /include/show_watching_themes.php /api /api/* /rss /rss/* /assets/* /img/* /favicon.ico /robots.txt
+	# files. include/*.php are the UI's page sections, loaded by the frontend
+	# as "include/<page>.php"; each checks the login itself (Sys::checkAuth).
+	# Everything else (class/, trackers/, engine.php, config.xml,
+	# version.txt, torrents/, ...) is internal: 404.
+	@public path / /index.php /action.php /include/* /api /api/* /rss /rss/* /assets/* /img/* /favicon.ico /robots.txt
 	handle @public {
 		# The API is a front controller (upstream's api/.htaccess).
 		route /api* {

@@ -61,8 +61,14 @@ for mode in "${MODES[@]}"; do
     code() { curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:18090$1"; }
     [ "$(code /healthz)" = 200 ] || { echo "healthz: $(code /healthz)"; exit 1; }
     curl -s http://127.0.0.1:18090/ | grep -q 'type="password"' || { echo "no login form"; exit 1; }
-    for p in /engine.php /config.php /class/Database.class.php /version.txt /migrate.php; do
+    for p in /engine.php /config.php /class/Database.class.php /version.txt /migrate.php /include/update.php; do
         [ "$(code $p)" = 404 ] || { echo "$p: $(code $p), want 404"; exit 1; }
+    done
+    # The UI's page sections (loaded as include/<page>.php): reachable, and
+    # without a session they must not render (checkAuth redirects).
+    for p in /include/settings.php /include/show_table.php /include/credentials.php; do
+        c=$(code $p)
+        [ "$c" != 404 ] && [ "$c" != 200 ] || { echo "$p: $c, want a redirect to the login"; exit 1; }
     done
     kill $pf; wait $pf 2>/dev/null || true
     echo "healthz 200, login form, internal paths 404"

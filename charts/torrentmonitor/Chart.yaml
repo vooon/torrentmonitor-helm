@@ -5,7 +5,7 @@ type: application
 # version: ../../VERSION, <upstream version>-<release> (CI checks); also the
 # default image tag (the image is built here). appVersion: upstream
 # TorrentMonitor version.
-version: 3.3.6-2
+version: 3.3.6-3
 appVersion: "3.3.6"
 home: https://github.com/vooon/torrentmonitor-helm
 sources:
