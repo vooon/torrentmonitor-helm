@@ -1,0 +1,14 @@
+apiVersion: v2
+name: torrentmonitor
+description: TorrentMonitor (tracker topic watcher feeding torrent clients), immutable image, migrations before start, engine as a CronJob
+type: application
+# version: ../../VERSION, <upstream version>-<release> (CI checks); also the
+# default image tag (the image is built here). appVersion: upstream
+# TorrentMonitor version.
+version: 3.3.6-1
+appVersion: "3.3.6"
+home: https://github.com/vooon/torrentmonitor-helm
+sources:
+  - https://github.com/vooon/torrentmonitor-helm
+  - https://github.com/ElizarovEugene/TorrentMonitor
+keywords: [torrent, qbittorrent, transmission, rutracker]

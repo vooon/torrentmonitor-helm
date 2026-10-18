@@ -1,0 +1,45 @@
+# Tag v<VERSION> (e.g. v3.3.6-1) on main: image and chart to ghcr.io.
+name: release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Tag matches VERSION
+        run: |
+          scripts/check-versions.sh
+          [ "${GITHUB_REF_NAME}" = "v$(cat VERSION)" ] || { echo "tag ${GITHUB_REF_NAME} != v$(cat VERSION)"; exit 1; }
+          echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/torrentmonitor" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image
+        run: |
+          docker buildx build --push --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="$VERSION" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            -t "$IMAGE:$VERSION" .
+
+      - uses: azure/setup-helm@v5
+      - name: Chart
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm package charts/torrentmonitor -d dist
+          helm push "dist/torrentmonitor-$VERSION.tgz" "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"

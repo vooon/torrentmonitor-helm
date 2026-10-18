@@ -1,0 +1,20 @@
+# Not the submodule: upstream.yml moves it only to "version" commits and
+# refreshes update.xml and the versions with it.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Dockerfile base images (alpine build stage, FrankenPHP runtime).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]

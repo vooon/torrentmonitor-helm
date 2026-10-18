@@ -1,0 +1,80 @@
+# engine.php on a schedule (the image has no cron daemon). Create a run by
+# hand: kubectl create job --from=cronjob/<release>-torrentmonitor-engine x
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "tm.fullname" . }}-engine
+  labels:
+    {{- include "tm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: engine
+spec:
+  schedule: {{ .Values.engine.schedule | quote }}
+  {{- with .Values.engine.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  concurrencyPolicy: {{ .Values.engine.concurrencyPolicy }}
+  startingDeadlineSeconds: {{ .Values.engine.startingDeadlineSeconds }}
+  successfulJobsHistoryLimit: {{ .Values.engine.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.engine.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.engine.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.engine.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            {{- include "tm.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: engine
+            {{- with .Values.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          initContainers:
+            {{- include "tm.migrateContainer" . | nindent 12 }}
+          containers:
+            - name: engine
+              image: {{ include "tm.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: [php, /app/engine.php]
+              env:
+                {{- include "tm.env" . | nindent 16 }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.engine.resources | nindent 16 }}
+              volumeMounts:
+                {{- include "tm.volumeMounts" . | nindent 16 }}
+          volumes:
+            {{- include "tm.volumes" . | nindent 12 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if and (eq .Values.database.type "sqlite") (has "ReadWriteOnce" .Values.database.sqlite.persistence.accessModes) }}
+          # ReadWriteOnce volume: run on the web pod's node.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      {{- include "tm.selectorLabels" . | nindent 22 }}
+                      app.kubernetes.io/component: web
+          {{- else }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}

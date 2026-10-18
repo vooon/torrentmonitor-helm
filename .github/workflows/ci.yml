@@ -1,0 +1,43 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      IMG: localhost/torrentmonitor:ci
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Fetch upstream history (older schemas for the migration test)
+        run: git -C upstream fetch --unshallow --quiet || true
+
+      - name: Versions
+        run: scripts/check-versions.sh
+
+      - uses: azure/setup-helm@v5
+      - name: Helm lint
+        run: |
+          key=$(openssl rand -hex 32)
+          helm lint charts/torrentmonitor --set encryptionKey.value=$key --set database.pgsql.existingSecret=x
+          helm lint charts/torrentmonitor --set encryptionKey.value=$key --set database.type=sqlite \
+            --set flaresolverr.enabled=true --set networkPolicy.enabled=true --set configXml='<body/>'
+
+      - uses: docker/setup-buildx-action@v4
+      - name: Build image
+        run: docker buildx build --load --build-arg VERSION="$(cat VERSION)" -t "$IMG" .
+
+      - name: Migration test
+        run: tests/migrations.sh "$IMG"
+
+      - name: Install k3d
+        run: curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/v5.8.3/install.sh | TAG=v5.8.3 bash
+      - name: e2e (k3d)
+        run: tests/e2e/run.sh "$IMG" pgsql sqlite

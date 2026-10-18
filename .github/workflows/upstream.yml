@@ -1,0 +1,38 @@
+# Daily: if upstream TorrentMonitor has a new version, open a PR moving the
+# submodule (with the refreshed update.xml for review). Set the secret
+# PR_TOKEN (fine-grained PAT: contents + pull requests write) so the PR
+# triggers CI; with the default GITHUB_TOKEN it does not.
+name: upstream
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Check upstream
+        id: up
+        run: |
+          git -C upstream fetch --unshallow --quiet || true
+          before=$(cat VERSION)
+          scripts/upstream-update.sh "$RUNNER_TEMP/pr-body.md"
+          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          [ "$before" = "$(cat VERSION)" ] || echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: peter-evans/create-pull-request@v8
+        if: steps.up.outputs.changed == 'true'
+        with:
+          token: ${{ secrets.PR_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: upstream/update
+          commit-message: "upstream: TorrentMonitor ${{ steps.up.outputs.version }}"
+          title: "upstream: TorrentMonitor ${{ steps.up.outputs.version }}"
+          body-path: ${{ runner.temp }}/pr-body.md
+          delete-branch: true

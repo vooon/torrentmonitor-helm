@@ -1,0 +1,21 @@
+image:
+  pullPolicy: Never
+database:
+  type: pgsql
+  pgsql:
+    existingSecret: tmdb-app
+engine:
+  # Never on its own during the test; runs are created by hand.
+  schedule: "0 0 31 2 *"
+# The policy must not break the app: in from anywhere in the namespace
+# (the test's port-forward goes through the kubelet anyway), out to the DB.
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    - podSelector: {}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app: tmdb}
+      ports:
+        - {port: 5432, protocol: TCP}

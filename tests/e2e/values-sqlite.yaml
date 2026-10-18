@@ -1,0 +1,6 @@
+image:
+  pullPolicy: Never
+database:
+  type: sqlite
+engine:
+  schedule: "0 0 31 2 *"

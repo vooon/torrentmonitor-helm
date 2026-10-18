@@ -1,0 +1,8 @@
+TorrentMonitor {{ .Chart.AppVersion }}: web {{ include "tm.fullname" . }}:{{ .Values.service.port }}, engine CronJob {{ include "tm.fullname" . }}-engine ({{ .Values.engine.schedule }}).
+
+The first login uses upstream's default password; change it in the UI.
+Run the engine now:
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "tm.fullname" . }}-engine engine-manual
+{{- if .Values.flaresolverr.enabled }}
+FlareSolverr URL for the UI settings: http://{{ include "tm.fullname" . }}-flaresolverr:8191
+{{- end }}

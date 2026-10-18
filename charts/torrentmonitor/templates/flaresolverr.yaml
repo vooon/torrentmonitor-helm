@@ -1,0 +1,53 @@
+{{- if .Values.flaresolverr.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tm.fullname" . }}-flaresolverr
+  labels:
+    {{- include "tm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flaresolverr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "tm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: flaresolverr
+  template:
+    metadata:
+      labels:
+        {{- include "tm.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: flaresolverr
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: flaresolverr
+          image: "{{ .Values.flaresolverr.image.repository }}:{{ .Values.flaresolverr.image.tag }}"
+          imagePullPolicy: {{ .Values.flaresolverr.image.pullPolicy }}
+          env:
+            - name: TZ
+              value: {{ .Values.timezone | quote }}
+          ports:
+            - name: http
+              containerPort: 8191
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {{- toYaml .Values.flaresolverr.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tm.fullname" . }}-flaresolverr
+  labels:
+    {{- include "tm.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "tm.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: flaresolverr
+  ports:
+    - name: http
+      port: 8191
+      targetPort: http
+{{- end }}

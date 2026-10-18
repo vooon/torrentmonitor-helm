@@ -1,0 +1,21 @@
+{{- if and (eq .Values.database.type "sqlite") (not .Values.database.sqlite.persistence.existingClaim) }}
+{{- with .Values.database.sqlite.persistence }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tm.fullname" $ }}-data
+  labels:
+    {{- include "tm.labels" $ | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    {{- toYaml .accessModes | nindent 4 }}
+  {{- with .storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .size }}
+{{- end }}
+{{- end }}

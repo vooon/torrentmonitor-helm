@@ -1,0 +1,11 @@
+{{- if .Values.configXml }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tm.fullname" . }}-config
+  labels:
+    {{- include "tm.labels" . | nindent 4 }}
+data:
+  config.xml: |
+    {{- .Values.configXml | nindent 4 }}
+{{- end }}

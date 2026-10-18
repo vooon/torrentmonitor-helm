@@ -1,0 +1,145 @@
+image:
+  repository: ghcr.io/vooon/torrentmonitor
+  # Defaults to the chart version (<upstream version>-<release>).
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# PHP time zone (also the times shown in the UI).
+timezone: UTC
+
+# Key that encrypts the stored tracker and client passwords: 64 hex
+# characters (openssl rand -hex 32). Required. Either an existing Secret, or
+# a value from which the chart creates one.
+encryptionKey:
+  existingSecret: ""
+  secretKey: encryption-key
+  value: ""
+
+database:
+  # pgsql or sqlite
+  type: pgsql
+  pgsql:
+    # A Secret with the connection; the defaults match the "<cluster>-app"
+    # Secret CloudNativePG creates.
+    existingSecret: ""
+    keys:
+      host: host
+      port: port
+      dbname: dbname
+      user: username
+      password: password
+  sqlite:
+    # The engine CronJob and the web pod share this volume; with a
+    # ReadWriteOnce volume the CronJob pod is placed on the web pod's node.
+    persistence:
+      existingClaim: ""
+      storageClass: ""
+      accessModes: [ReadWriteOnce]
+      size: 1Gi
+  # Migrator only: adopt an existing database (no tm_schema_version yet) at
+  # this upstream version.
+  baselineVersion: ""
+
+# Extended settings (upstream's config.xml: per-tracker mirrors and proxies).
+# Empty: the image's template (everything commented out). Read-only: the
+# UI's "extended settings" save fails; set it here.
+configXml: ""
+
+# engine.php: checks the watched topics and hands updates to the client.
+engine:
+  schedule: "0 * * * *"
+  timeZone: ""
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  activeDeadlineSeconds: 3000
+  backoffLimit: 0
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 512Mi
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    memory: 512Mi
+
+migrate:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+extraEnv: []
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  #  - host: torrentmonitor.example.com
+  tls: []
+  #  - secretName: torrentmonitor-tls
+  #    hosts: [torrentmonitor.example.com]
+
+# Restrict traffic of the web and engine pods. Ingress: from the listed
+# peers to the web port. Egress: DNS plus the listed rules (trackers, proxy,
+# torrent client, database, FlareSolverr); nothing else.
+networkPolicy:
+  enabled: false
+  ingressFrom: []
+  #  - namespaceSelector:
+  #      matchLabels: {kubernetes.io/metadata.name: kube-system}
+  #    podSelector:
+  #      matchLabels: {app.kubernetes.io/name: traefik}
+  egress: []
+  #  - to: [{ipBlock: {cidr: 192.168.1.10/32}}]
+  #    ports: [{port: 8080, protocol: TCP}]
+
+# FlareSolverr (headless browser) for trackers behind Cloudflare challenges
+# (rutracker since 3.2.3). Set its URL in the UI: http://<release>-flaresolverr:8191
+flaresolverr:
+  enabled: false
+  image:
+    repository: ghcr.io/flaresolverr/flaresolverr
+    tag: v3.5.2
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

@@ -1,6 +1,6 @@
 # torrentmonitor-helm
 
-Reproducible container image (and, next, a Helm chart) for
+Reproducible container image and Helm chart for
 [TorrentMonitor](https://github.com/ElizarovEugene/TorrentMonitor).
 
 The image contains everything it runs and never changes itself: no
@@ -17,14 +17,19 @@ image/Caddyfile           FrankenPHP: :8080, allowlist of public paths
 image/php.ini
 migrations/update.xml     upstream's per-version SQL, committed and reviewed
 migrations/<db>/<v>.sql   our additions where update.xml has no SQL for a type
+charts/torrentmonitor/    Helm chart
 tests/migrations.sh       fresh install + upgrade test against a throwaway Postgres
+tests/e2e/                k3d end-to-end test of the chart (pgsql and sqlite)
+scripts/                  version check, upstream update
+.github/                  CI, release, upstream watch, Dependabot
 VERSION                   <upstream version>-<release>
 ```
 
 ## Versions
 
-`VERSION` is `<upstream version>-<release>`, e.g. `3.3.6-1`, used for the
-image tag and (next) the chart version. A new upstream version resets the
+`VERSION` is `<upstream version>-<release>`, e.g. `3.3.6-1`: the image tag
+and the chart `version`. The chart `appVersion` is the upstream version
+(`3.3.6`); the chart's default image tag is its `version`. A new upstream version resets the
 release to 1; changes here (patches, image, chart) increment it. Upstream
 versions with two parts (`3.3`) become `3.3.0-N`. The build fails if
 `VERSION` does not match `upstream/version.txt`.
@@ -81,11 +86,68 @@ podman build --build-arg VERSION=$(cat VERSION) -t torrentmonitor:$(cat VERSION)
 tests/migrations.sh torrentmonitor:$(cat VERSION)
 ```
 
+## Chart
+
+```sh
+helm install tm oci://ghcr.io/vooon/charts/torrentmonitor --version 3.3.6-1 \
+  --set encryptionKey.value=$(openssl rand -hex 32) \
+  --set database.pgsql.existingSecret=<cnpg-cluster>-app
+```
+
+- Deployment (web, FrankenPHP :8080) with the migrator as init container;
+  CronJob `<release>-torrentmonitor-engine` runs `engine.php`
+  (`engine.schedule`), also behind the migrator, so neither runs on an older
+  schema after an upgrade.
+- `database.type: pgsql` reads the connection from `database.pgsql.existingSecret`
+  (keys default to CloudNativePG's `<cluster>-app`); `sqlite` uses a PVC shared
+  by web and engine (ReadWriteOnce: the engine runs on the web pod's node).
+- `encryptionKey`: `existingSecret` or `value` (the chart's Secret is kept on
+  uninstall).
+- `configXml`: extended settings (per-tracker mirrors/proxies).
+- Optional: Ingress, NetworkPolicy (ingress peers, egress rules; DNS always),
+  FlareSolverr (rutracker's Cloudflare challenge; URL in the UI settings).
+- The first login uses upstream's default password: change it.
+
+## Tests
+
+```sh
+podman build --build-arg VERSION=$(cat VERSION) -t localhost/torrentmonitor:$(cat VERSION) .
+tests/migrations.sh localhost/torrentmonitor:$(cat VERSION)
+tests/e2e/run.sh localhost/torrentmonitor:$(cat VERSION) pgsql sqlite
+```
+
+The e2e test creates a k3d cluster, imports the image, installs the chart
+(pgsql: with a plain Postgres and the NetworkPolicy on; sqlite) and checks:
+rollout, `/healthz`, the login page, internal paths 404, an engine run
+(`settings.lastStart` set), and a `helm upgrade` (migrator: up to date).
+Tracker checks are not tested (accounts needed). With rootless podman, k3s
+needs the `cpuset` controller delegated to the user
+(`Delegate=cpu cpuset io memory pids` in a `user@.service` drop-in).
+
+## CI and releases
+
+- `ci.yml` (push, PR): versions, helm lint, image build, migration test, k3d
+  e2e.
+- `release.yml` (tag `v<VERSION>`, e.g. `v3.3.6-1`): image
+  `ghcr.io/vooon/torrentmonitor:<VERSION>` (amd64, arm64) and the chart
+  `oci://ghcr.io/vooon/charts/torrentmonitor`.
+- `upstream.yml` (daily): new upstream version → PR (below). Set the secret
+  `PR_TOKEN` (fine-grained PAT: contents and pull requests write), or the PR
+  does not trigger CI.
+- Dependabot: GitHub Actions and the Dockerfile base images. Not the
+  submodule (upstream.yml), and not image tags in `values.yaml` (FlareSolverr)
+  or the tests: bump those by hand.
+
+A change of our own (patches, image, chart) bumps the release:
+`VERSION` and the chart `version` to `<upstream>-<release+1>`, then tag.
+
 ## Updating upstream
 
-1. Move the submodule to the new "version X" commit.
-2. Refresh `migrations/update.xml` from https://xml.tormon.ru/update.xml and
-   review the diff (it is SQL that will run against the database).
-3. Add `migrations/pgsql/<v>.sql` where the new version has SQL for other
-   databases but not for Postgres.
-4. `VERSION` = `<new version>-1`, build, run the test.
+`scripts/upstream-update.sh` (run daily by `upstream.yml`, or by hand):
+
+1. moves the submodule to upstream's latest commit that changed `version.txt`;
+2. refreshes `migrations/update.xml` from https://xml.tormon.ru/update.xml
+   (must already list the new version): **review the SQL diff**;
+3. sets `VERSION` and the chart version to `<new>-1`, appVersion to `<new>`;
+4. lists versions with SQL for sqlite/mysql but none for Postgres: add
+   `migrations/pgsql/<v>.sql` where needed.
