@@ -18,7 +18,7 @@ RUN set -eu; \
     find /src -type f -exec chmod 0644 {} +; find /src -type d -exec chmod 0755 {} +
 
 # --- runtime -----------------------------------------------------------------
-FROM docker.io/dunglas/frankenphp:1.12.7-php8.4-bookworm
+FROM docker.io/dunglas/frankenphp:1.12.7-php8.4-trixie
 ARG VERSION
 LABEL org.opencontainers.image.title="torrentmonitor" \
       org.opencontainers.image.version="${VERSION}" \
