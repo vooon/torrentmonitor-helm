@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMG: localhost/torrentmonitor:ci
+      # The runners also have podman, which tests/migrations.sh would prefer;
+      # the image is built into docker.
+      CONTAINER_TOOL: docker
     steps:
       - uses: actions/checkout@v7
         with:
