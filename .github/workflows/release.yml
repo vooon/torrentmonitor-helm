@@ -5,7 +5,8 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: read
+  # contents: the GitHub Release; packages: ghcr.
+  contents: write
   packages: write
 
 jobs:
@@ -43,3 +44,21 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
           helm package charts/torrentmonitor -d dist
           helm push "dist/torrentmonitor-$VERSION.tgz" "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          owner=${GITHUB_REPOSITORY_OWNER,,}
+          upstream=$(sed -nE 's/^appVersion: *"?([^"]+)"?$/\1/p' charts/torrentmonitor/Chart.yaml)
+          commit=$(git -C upstream rev-parse --short=12 HEAD)
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          TorrentMonitor **${upstream}** (upstream \`${commit}\`), release ${VERSION#*-}.
+
+          \`\`\`sh
+          docker pull ghcr.io/${owner}/torrentmonitor:${VERSION}
+          helm install tm oci://ghcr.io/${owner}/charts/torrentmonitor --version ${VERSION}
+          \`\`\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" "dist/torrentmonitor-$VERSION.tgz" \
+            --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes --verify-tag
